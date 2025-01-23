@@ -66,6 +66,23 @@ impl List {
          */
         self.root = Link::PointerTo(new_node);
     }
+
+    pub fn pop(&mut self) -> Option<i32> {
+        // 2. we should add a reference to the match to ensure ownership is only borrowed, not taken
+        match &self.root {
+            Link::Empty => {
+                
+            },
+            /*
+                1. by default, pattern match will try to move contents 
+                however, we do not own the data by value here!! we only borrow it!! 
+            */
+            Link::PointerTo(some) => {
+
+            },
+        }
+        unimplemented!();
+    }
 }
 
 /*
