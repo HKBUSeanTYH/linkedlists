@@ -68,17 +68,24 @@ impl List {
     }
 
     pub fn pop(&mut self) -> Option<i32> {
+        let result;
         // 2. we should add a reference to the match to ensure ownership is only borrowed, not taken
-        match &self.root {
+        // 4. using mem::replace to replace the original root with empty in order to later assign new node to root
+        match mem::replace(&mut self.root, Link::Empty) {
             Link::Empty => {
-                
+                result = None;
             },
             /*
                 1. by default, pattern match will try to move contents 
                 however, we do not own the data by value here!! we only borrow it!! 
             */
-            Link::PointerTo(some) => {
-
+            Link::PointerTo(node) => {
+                result = Some(node.elem);
+                self.root = node.next;
+                /*
+                    3. we are trying to move out of node when we only have a &self.root (shared reference)
+                    - we want to remove (indicates we need the root by-value)
+                */
             },
         }
         unimplemented!();
