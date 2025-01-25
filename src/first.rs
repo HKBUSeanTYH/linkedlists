@@ -68,27 +68,23 @@ impl List {
     }
 
     pub fn pop(&mut self) -> Option<i32> {
-        let result;
         // 2. we should add a reference to the match to ensure ownership is only borrowed, not taken
-        // 4. using mem::replace to replace the original root with empty in order to later assign new node to root
+        // 4. using mem::replace to replace the original root with empty, temporarily taking ownership of root so that we can change self.root to node.next
         match mem::replace(&mut self.root, Link::Empty) {
-            Link::Empty => {
-                result = None;
-            },
+            Link::Empty => None,
             /*
                 1. by default, pattern match will try to move contents 
                 however, we do not own the data by value here!! we only borrow it!! 
             */
             Link::PointerTo(node) => {
-                result = Some(node.elem);
                 self.root = node.next;
+                Some(node.elem)
                 /*
                     3. we are trying to move out of node when we only have a &self.root (shared reference)
                     - we want to remove (indicates we need the root by-value)
                 */
             },
         }
-        unimplemented!();
     }
 }
 
@@ -98,3 +94,58 @@ impl List {
         &mut self - mutable reference (represents temporary exclusive access to a value that you don't own)
         &self - shared reference (represents temporary shared access to a value that you don't own)
 */
+
+impl Drop for List {
+    fn drop(&mut self) {
+        // 1. replace root with Link::Empty and move root-node-pointer enum into cur_link
+        let mut cur_link = mem::replace(&mut self.root, Link::Empty);
+        
+        //2. while cur_link can be matched to Pattern of Link::PointerTo (not Link::Empty), take ownership of the node pointer
+        while let Link::PointerTo(mut boxed_node) = cur_link {
+            cur_link = mem::replace(&mut boxed_node.next, Link::Empty);
+            /* 
+                3. the next pointer of boxed_node is moved into cur_link and replaced with Link::Empty
+                4. the boxed_node goes out of scope and is dropped (RAII), 
+                    - typically a recursion would happen here to drop node.next, 
+                      but it was replaced with Link::Empty previously, so there is no unbounded recursion
+            */
+        }
+        /*
+            boxed_node's scope is confined to body of while loop. Each iteration takes ownership of a boxed_node, 
+            ensures 'next' pointer points to Link::Empty, then drops the boxed_node at the end of the iteration
+        */
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::List;
+    #[test]
+    fn basics() {
+        let mut list = List::new();
+
+        // Check empty list behaves right
+        assert_eq!(list.pop(), None);
+
+        // Populate list
+        list.push(1);
+        list.push(2);
+        list.push(3);
+
+        // Check normal removal
+        assert_eq!(list.pop(), Some(3));
+        assert_eq!(list.pop(), Some(2));
+
+        // Push some more just to make sure nothing's corrupted
+        list.push(4);
+        list.push(5);
+
+        // Check normal removal
+        assert_eq!(list.pop(), Some(5));
+        assert_eq!(list.pop(), Some(4));
+
+        // Check exhaustion
+        assert_eq!(list.pop(), Some(1));
+        assert_eq!(list.pop(), None);
+    }
+}
