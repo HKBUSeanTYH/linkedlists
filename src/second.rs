@@ -70,6 +70,66 @@ impl <T> Drop for List<T> {
     }
 }
 
+#[allow(dead_code)]
+/*
+    Tuple structs - trivial wrappers around other types without having to name each field   
+*/
+pub struct IntoIter<T>(List<T>);
+
+impl <T> List<T> {
+    pub fn into_iter(self) -> IntoIter<T> {
+        IntoIter(self)
+    }
+}
+
+impl <T> Iterator for IntoIter<T> {
+    type Item = T;
+    fn next (&mut self) -> Option<Self::Item> {
+        self.0.pop()
+    }
+}
+
+pub struct Iter<'a, T> {
+    next: Option<&'a Node<T>>,
+    /*
+        Iter contains a reference to something, we need a lifetime specifier to ensure that reference lasts as long as needed
+        Iter is generic over *some* lifetime, it doesn't care
+    */
+}
+
+//No life time is needed on List because it doesn't have any associated lifetimes
+impl <T> List<T> {
+    /*
+        A lifetime is declared here for the *exact* borrow that creates the Iter. 
+        self (the List creating the Iter) needs to be valid for as long as Iter is around.
+    */
+    pub fn iter<'a>(&'a self) -> Iter<'a, T> {
+        /*
+            Input expects an Option to the Node, however, we have an Option containing a pointer (Box) to the Node!
+            we need to dereference (*) the pointer, however, we cannot return a reference to data owned locally!
+                - recall map() moves the data!! It takes ownership.
+
+            Hence we need to use as_ref to get a reference to the node, however, as_ref adds another layer of indirection! 
+                - we would typically need to dereference the extra indirection, 
+                  but Rust helps us with this with the as_deref() function, dereferencing the extra pointer
+        */
+        Iter { next: self.root.as_deref().map(|node| { &*node })}
+    }
+}
+
+// A lifetime needs to be defined here because Iter has one that needs to be defined
+impl <'a, T> Iterator for Iter<'a, T> {
+    //lifetime needed here too, this is a type declaration
+    type Item = &'a T;
+    //code here does not need change due to Self::Item
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.map(|node| {
+            self.next = node.next.as_deref().map(|node| &*node);
+            &node.elem
+        })
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::List;
@@ -125,5 +185,28 @@ mod test {
 
         assert_eq!(list.peek(), Some(&42));
         assert_eq!(list.pop(), Some(42));
+    }
+
+    #[test]
+    pub fn into_iter() {
+        let mut list = List::new();
+        list.push(1); list.push(2); list.push(3);
+
+        let mut iter = list.into_iter();
+        assert_eq!(iter.next(), Some(3));
+        assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iter() {
+        let mut list = List::new();
+        list.push(1); list.push(2); list.push(3);
+
+        let mut iter = list.iter();
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&1));
     }
 }
