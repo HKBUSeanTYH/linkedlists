@@ -159,6 +159,19 @@ impl <'a, T> Iterator for IterMut<'a, T> {
     }
 }
 
+/* 
+    We have just implemented a piece of code that takes a singly-linked list, and returns a mutable reference to every single element in the list at most once. 
+    And it's statically verified to do that. And it's totally safe. And we didn't have to do anything wild.
+
+    That's kind of a big deal, if you ask me. There are a couple reasons why this works:
+
+    We take the Option<&mut> so we have exclusive access to the mutable reference. No need to worry about someone looking at it again.
+    Rust understands that it's ok to shard a mutable reference into the subfields of the pointed-to struct, 
+    because there's no way to "go back up", and they're definitely disjoint.
+    
+    It turns out that you can apply this basic logic to get a safe IterMut for an array or a tree as well! 
+    You can even make the iterator DoubleEnded, so that you can consume the iterator from the front and the back at once! Woah!
+*/
 
 #[cfg(test)]
 mod test {
